@@ -1,6 +1,6 @@
 ---
 name: prose-standard
-description: 在 dsh-recall-plugin 仓库中撰写、审查、整理、精简或审计文字与文档时使用——覆盖 Markdown 页面与 README 的结构组织（摘要、目录、用户到开发者的渐进详略、折叠与索引）、注释与 JSDoc、配置说明、诊断文案与 client UI 字符串，以及操作类断言的事实验证、行文规则与文档质量判据。
+description: 撰写、审查、精简或审计本仓库的文字时使用——Markdown 文档与 README、注释与 JSDoc、配置说明、诊断文案、client UI 字符串；用户说「润色文档」「审查 README」「这段文案行不行」时适用。拥有文档结构、行文规则与文档质量判据。
 ---
 
 # dsh-recall-plugin 散文与文档标准

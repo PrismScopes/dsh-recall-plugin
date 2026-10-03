@@ -1,6 +1,6 @@
 ---
 name: ci-test-reliability
-description: 设计、审查、诊断 dsh-recall-plugin 中可能在 CI 并发下非确定性失败的测试与 fixture——涉及共享宿主资源、时钟、进程全局状态、子进程、网络监听、跨平台语义或异步 teardown 时使用。新增或改动这类测试、排查 flaky CI、审查测试隔离时适用。
+description: 设计、审查或诊断可能在 CI 并发下非确定性失败（flaky）的测试与 fixture 时使用——测试涉及共享宿主资源、时钟、进程全局状态、子进程、网络监听、跨平台语义或异步 teardown；用户说「排查 flaky CI」「这个测试偶发失败」「审查测试隔离」时适用。
 ---
 
 # dsh-recall-plugin 的可靠 CI 测试
@@ -19,7 +19,7 @@ description: 设计、审查、诊断 dsh-recall-plugin 中可能在 CI 并发�
 这些事实决定本 skill 在本仓库的落点，改动测试前先确认它们未被推翻：
 
 - 开发机通常是 Windows（PowerShell 5.1 / pwsh 7 都可能），CI 跑 `ubuntu-latest`。**两端都要绿**：单跑 Windows 通过不能证明 CI 通过，反之亦然。
-- CI 只跑三件事：`npm run typecheck`（在单测之前，`tests/types` 编译期断言漏跑即假绿）、`npm test`（`tests/unit`）、`npm run build && git diff --exit-code lib/`（产物新鲜度）。
+- CI 跑四件事：`npm run typecheck`（在单测之前，`tests/types` 编译期断言漏跑即假绿）、`npm test`（`tests/unit`）、`npm run test:client`（`tests/client`，jsdom 环境走独立 vitest 配置）、`npm run build && git diff --exit-code lib/`（产物新鲜度）。
 - `npm run test:probe` 与 `npm run verify:host` 依赖本机 dsh 安装，**不进 CI**，是发布前本地门禁；它们最容易在 CI 之外悄悄腐化，改动相关路径时要主动跑。
 - 双平台命令模板（`src/host/scripts.pwsh.ts` / `scripts.posix.ts`）必须同名导出，契约由 `src/types/scripts.ts` + `tests/types` 编译期断言锁死；行为差异（引号、编码、命令行长度、`$LASTEXITCODE`、循环体写法）是这类测试的高危区。
 

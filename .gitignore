@@ -11,3 +11,7 @@ recall-settings.yaml
 settings.yaml
 .trae/
 .claude/
+PROGRESS.md
+BLOCKED.md
+.zcodeignore
+
