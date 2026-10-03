@@ -8,7 +8,7 @@
  * 渲染，组件侧统一吃 util.t。
  */
 
-import type { ManageListItem } from '../types/api.js'
+import type { ManageListItem, RecallNotifyArgs, RecallScope } from '../types/api.js'
 import { hasTranslation, resolveLocale, translate, zhTranslate } from './locales/index.js'
 import type { DictParams, Locale, Translate } from './locales/index.js'
 
@@ -114,6 +114,51 @@ export function recallApiUrl(name: string, base?: string): string {
   } catch (e) {
     // 解析失败回落原根绝对路径（见上方注释：保持旧行为不倒退）
     return '/api/recall/' + name
+  }
+}
+
+// ---- 撤回终态上报（issue #19）----
+
+// buildRecallNotify 的「撤回结果」输入：与规格语义决策表（plan-recall-event
+// §一）一一对应。STALE 自动重预览是中间态，不构成 outcome——类型上就没有
+// 该分支，接线处不会为它构造调用，编译器替人守住「STALE 不上报」。
+export type RecallNotifyOutcome =
+  | { outcome: 'execute-rejected'; cutSeq: number | null; code?: string; error?: string }
+  | { outcome: 'execute-threw'; cutSeq: number | null; error: string }
+  | { outcome: 'fork-failed'; cutSeq: number | null; error: string }
+  | { outcome: 'complete'; cutSeq: number | null; childSessionId: string | null; count: number; chatReverted: boolean; archiveRequested: boolean }
+
+// 纯函数：按撤回结果组装 notify 上报载荷（事件名/version/time 由 host 补，
+// client 只报业务事实）。组装与发送分离——五处上报点只管 fire-and-forget，
+// 六场景矩阵的字段语义在单测直钉，不用为改字段语义去驱动整条撤回链。
+export function buildRecallNotify(
+  base: { sessionId: string; messageId: string; scope: RecallScope },
+  o: RecallNotifyOutcome
+): RecallNotifyArgs {
+  if (o.outcome === 'complete') {
+    return {
+      status: 'complete',
+      sessionId: base.sessionId,
+      messageId: base.messageId,
+      scope: base.scope,
+      cutSeq: o.cutSeq,
+      childSessionId: o.childSessionId,
+      count: o.count,
+      chatReverted: o.chatReverted,
+      archiveRequested: o.archiveRequested,
+    }
+  }
+  const stage = o.outcome === 'fork-failed' ? 'fork' : 'execute'
+  const code = o.outcome === 'execute-rejected' && typeof o.code === 'string' && o.code ? o.code : undefined
+  return {
+    status: 'failed',
+    stage,
+    sessionId: base.sessionId,
+    messageId: base.messageId,
+    scope: base.scope,
+    cutSeq: o.cutSeq,
+    ...(code ? { code } : {}),
+    error: typeof o.error === 'string' && o.error ? o.error : String(o.error || 'recall failed'),
   }
 }
 

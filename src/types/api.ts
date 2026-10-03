@@ -143,6 +143,29 @@ export interface LineageRecordOk {
 }
 export type LineageRecordResponse = LineageRecordOk | ErrBody
 
+// ---- notify ----
+
+// client 撤回终态上报（issue #19）：host 按 status 组装 dsh-recall/complete
+// 或 dsh-recall/failed payload（version/time 由 host 补，root 由 host enrich）
+// 经 ctx.emit 广播。字段是两类事件 payload 的并集读取侧可选——complete 用
+// childSessionId/count/chatReverted/archiveRequested，failed 用 stage/code/error，
+// 各自必填项由端点校验（缺失 → RECALL_BAD_TYPE）兜住，类型不重复建模。
+export interface RecallNotifyArgs {
+  status?: 'complete' | 'failed'
+  sessionId?: string
+  messageId?: string
+  scope?: RecallScope
+  cutSeq?: number | null
+  childSessionId?: string | null
+  chatReverted?: boolean
+  archiveRequested?: boolean
+  count?: number
+  stage?: 'execute' | 'fork'
+  code?: string
+  error?: string
+}
+export type RecallNotifyResponse = { ok: true } | ErrBody
+
 // ---- exclude-get / exclude-set ----
 
 export interface ExcludeGetResponse {

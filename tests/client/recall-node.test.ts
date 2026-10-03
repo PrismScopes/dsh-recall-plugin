@@ -336,3 +336,78 @@ describe('撤回节点：消息渲染与复制', () => {
     expect(copied).toEqual(['hello'])
   })
 })
+
+// ---- 撤回终态上报（issue #19）----
+// 钉五处接线点的调用时机与载荷：组装语义在 tests/unit/recall-notify.test.js
+// （纯函数），这里只断言「哪条链发什么请求」——含 STALE 中间态不发事件。
+describe('撤回节点：终态上报（notify fire-and-forget）', () => {
+  async function runRecall(m: Awaited<ReturnType<typeof mount>>): Promise<void> {
+    await click(actionButtons(m.container)[1])
+    await flush()
+    await click(q(m.container, '.dsh-recall-btn-danger'))
+    await flush()
+  }
+
+  it('execute 成功 + fork 成功 → notify complete 载荷含 childSessionId/chatReverted/archiveRequested', async () => {
+    const m = await mount()
+    await runRecall(m)
+    const calls = m.fetchStub.callsOf('notify')
+    expect(calls.length).toBe(1)
+    expect(first(calls).args).toEqual({
+      status: 'complete', sessionId: 's1', messageId: 'm1', scope: 'both',
+      cutSeq: 7, childSessionId: 'child-1', count: 2,
+      chatReverted: true, archiveRequested: true,
+    })
+  })
+
+  it('STALE 自动重预览 → 不发 notify（中间态，规格 §一）', async () => {
+    const m = await mount({ routes: { execute: { ok: false, code: 'STALE', message: 'stale' } } })
+    await runRecall(m)
+    expect(m.fetchStub.callsOf('notify').length).toBe(0)
+    expect(m.fetchStub.callsOf('preview').length).toBe(2)
+  })
+
+  it('execute 拒绝（非 STALE）→ notify failed(stage:execute) 且 code 透传', async () => {
+    const m = await mount({ routes: { execute: { ok: false, code: 'AGENT_BUSY', message: 'busy' } } })
+    await runRecall(m)
+    const calls = m.fetchStub.callsOf('notify')
+    expect(calls.length).toBe(1)
+    expect(first(calls).args).toMatchObject({
+      status: 'failed', stage: 'execute', sessionId: 's1', messageId: 'm1',
+      code: 'AGENT_BUSY', cutSeq: 7,
+    })
+  })
+
+  it('execute 抛异常 → notify failed(stage:execute) 携带错误文本', async () => {
+    const m = await mount({ routes: { execute: new Error('network down') } })
+    await runRecall(m)
+    const calls = m.fetchStub.callsOf('notify')
+    expect(calls.length).toBe(1)
+    // String(Error) 带 'Error: ' 前缀，断错误文本包含即可（与既有异常面用例同口径）
+    expect(first(calls).args).toMatchObject({ status: 'failed', stage: 'execute', error: expect.stringContaining('network down') })
+  })
+
+  it('fork 抛错 → notify failed(stage:fork)，且不再发 complete（防下游误清记忆）', async () => {
+    const m = await mount()
+    m.sessions.service.fork = async () => { throw new Error('fork down') }
+    await runRecall(m)
+    const calls = m.fetchStub.callsOf('notify')
+    expect(calls.length).toBe(1)
+    expect(first(calls).args).toMatchObject({ status: 'failed', stage: 'fork', cutSeq: 7, error: expect.stringContaining('fork down') })
+  })
+
+  it('fork 返空 id → notify failed(stage:fork)', async () => {
+    const m = await mount({ childId: '' })
+    await runRecall(m)
+    const calls = m.fetchStub.callsOf('notify')
+    expect(calls.length).toBe(1)
+    expect(first(calls).args).toMatchObject({ status: 'failed', stage: 'fork' })
+  })
+
+  it('notify 上报失败（旧 host 404/网络错）→ 静默不崩，撤回链照常完成', async () => {
+    const m = await mount({ routes: { notify: new Error('404') } })
+    await runRecall(m)
+    expect(m.fetchStub.callsOf('notify').length).toBe(1)
+    expect(m.drafts).toEqual(['hello']) // 回填照常发生（fire-and-forget 不反噬主链）
+  })
+})

@@ -15,7 +15,16 @@ import type { ResolvedConfig } from '../types/config.js'
 import type { SnapshotsApi } from './snapshots.js'
             import type { IntentJournal } from './intent-journal.js'
 import type { EnvErrorKind } from './diagnostics.js'
-import type { InitArgs, InitResponse, InitNotice, SnapshotInfoArgs, SnapshotInfoResponse, PreviewArgs, PreviewResponse, ExecuteArgs, ExecuteResponse, RecallScope, StatusArgs, StatusResponse, LineageRecordArgs, LineageRecordResponse, ErrBody } from '../types/api.js'
+import type { InitArgs, InitResponse, InitNotice, SnapshotInfoArgs, SnapshotInfoResponse, PreviewArgs, PreviewResponse, ExecuteArgs, ExecuteResponse, RecallScope, StatusArgs, StatusResponse, LineageRecordArgs, LineageRecordResponse, RecallNotifyArgs, RecallNotifyResponse, ErrBody } from '../types/api.js'
+import type { RecallCompleteEvent, RecallFailedEvent } from '../types/events.js'
+
+// 撤回终态事件名（issue #19）：事件契约唯一事实源是 src/types/events.ts，
+// 但 build-host 逐文件转译只覆盖 src/host/（types/ 不落 lib/），host 产物
+// 运行时 import 它会 MODULE_NOT_FOUND——事件名在此按字面量声明、类型注解
+// 钉死，与契约文件的绑定由 tests/types/events-contract.test.ts 编译期双向
+// 赋值断言（漂移即 typecheck 红）。client 侧 bundle 打包不受此限，正常 import。
+export const RECALL_EVENT_COMPLETE_HOST: 'dsh-recall/complete' = 'dsh-recall/complete'
+export const RECALL_EVENT_FAILED_HOST: 'dsh-recall/failed' = 'dsh-recall/failed'
 
 // 端点依赖注入面（index.ts 装配时逐项提供；ctx 不解构的 A4 纪律见工厂注释）
 export interface RoutesCoreDeps {
@@ -30,12 +39,15 @@ export interface RoutesCoreDeps {
   agentBusy(sessionId: string | null, root: string | null): boolean
   rescueRollback: typeof import('./snapshots.js').rescueRollback
   E: typeof import('./errors.js')
+  // issue #19：撤回终态事件广播（index.ts 注入 (event, payload) => ctx.emit(event, payload)）。
+  // 经 deps 注入而非本域直接摸 ctx：工厂分层纪律（本域不持有 ctx）+ 单测可注入桩
+  emitEvent(event: string, payload: unknown): void
 }
 
 export function createRoutesCore(deps: RoutesCoreDeps) {
   // ctx 不解构（A4）：本域所有服务访问都已由 rt/snaps 封装，直接摸 ctx 会
   // 绕过工厂分层——留空位只会诱导未来代码破坏依赖注入约定
-  const { rt, snaps, state, cfg, supported, enqueue, agentBusy, rescueRollback, intentJournal, E } = deps
+  const { rt, snaps, state, cfg, supported, enqueue, agentBusy, rescueRollback, intentJournal, emitEvent, E } = deps
 
   return {
     'init': async (args: InitArgs): Promise<InitResponse> => {
@@ -270,6 +282,79 @@ export function createRoutesCore(deps: RoutesCoreDeps) {
       }
       if (!store) return { ok: false, code: E.RECALL_NO_STORE, message: '快照存储不可用' }
       await snaps.recordLineage(root, childId, parentId)
+      return { ok: true }
+    },
+
+    // issue #19：client 撤回终态上报 → cordis 事件广播（dsh-recall/complete
+    // | dsh-recall/failed）。不进串行队列（零 git 操作）、不依赖 store——
+    // lineage-record 的 NO_STORE 早退在这里是缺陷（原会话已归档时解析不到
+    // store 会吞掉事件），端点只做 enrich 与转发。恒 { ok: true }：事件
+    // 发送失败不影响撤回主流程（client 侧 fire-and-forget，连响应都不等）。
+    'notify': async (args: RecallNotifyArgs): Promise<RecallNotifyResponse> => {
+      const status = args && args.status
+      const sessionId = args && args.sessionId ? String(args.sessionId) : ''
+      const messageId = args && args.messageId ? String(args.messageId) : ''
+      // 复用 BAD_TYPE 不加新错误码：非法上报是插件版本错位/直调 API 的
+      // 编程错误，新码只会膨胀 client 词典；client 对响应本就不消费
+      if ((status !== 'complete' && status !== 'failed') || !sessionId || !messageId) {
+        return { ok: false, code: E.RECALL_BAD_TYPE, message: '撤回上报缺少必要参数' }
+      }
+      const scope: RecallScope = args && args.scope === 'session-only' ? 'session-only' : 'both'
+      const cutSeq = args && typeof args.cutSeq === 'number' ? args.cutSeq : null
+      // root enrich 尽力而为（Q3）：归档只隐藏列表、对象还在内存，大概率
+      // 成功；archiveOriginal 可关、resolveRoot 可返空——任一失败落 null，
+      // 不阻断事件（下游按 root 过滤的诉求退化为按 sessionId 过滤）
+      let root: string | null = null
+      try {
+        root = (await rt.resolveRoot(sessionId)) || null
+      } catch {
+        // 解析失败按无 root 继续发事件：事件可见性优先于 enrich 完整性，
+        // 抛错会让终态事件整条丢失（下游记忆清理漏做，比字段缺失更糟）
+        root = null
+      }
+      let eventName: string
+      let payload: RecallCompleteEvent | RecallFailedEvent
+      if (status === 'complete') {
+        eventName = RECALL_EVENT_COMPLETE_HOST
+        payload = {
+          version: 1,
+          sessionId,
+          childSessionId: args && args.childSessionId ? String(args.childSessionId) : null,
+          scope,
+          cutSeq,
+          messageId,
+          root,
+          count: args && typeof args.count === 'number' ? args.count : 0,
+          chatReverted: Boolean(args && args.chatReverted),
+          archiveRequested: Boolean(args && args.archiveRequested),
+          time: Date.now(),
+        }
+      } else {
+        eventName = RECALL_EVENT_FAILED_HOST
+        const code = args && typeof args.code === 'string' && args.code ? args.code : undefined
+        payload = {
+          version: 1,
+          stage: args && args.stage === 'fork' ? 'fork' : 'execute',
+          sessionId,
+          messageId,
+          scope,
+          cutSeq,
+          root,
+          ...(code ? { code } : {}),
+          error: args && typeof args.error === 'string' && args.error ? args.error : 'unknown recall failure',
+          time: Date.now(),
+        }
+      }
+      // queueMicrotask + try/catch 是硬要求（规格 §3.2）：同步 emit 时下游
+      // 监听器抛错/慢执行会直接反噬端点响应与撤回链路。emitEvent 本身抛错
+      // 与 microtask 内的异常同权吞掉——事件是尽力而为的旁路，失败只留痕
+      queueMicrotask(() => {
+        try {
+          emitEvent(eventName, payload)
+        } catch (error) {
+          rt.recordError('recall event emit failed: ' + String(error))
+        }
+      })
       return { ok: true }
     }
   }

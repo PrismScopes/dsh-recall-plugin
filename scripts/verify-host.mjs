@@ -227,7 +227,7 @@ async function callEndpoint(endpointName, args) {
 const EXPECTED_ENDPOINTS = [
   'init', 'snapshot-info', 'preview', 'execute',
   'exclude-get', 'exclude-set', 'config-get', 'config-set', 'config-reset',
-  'manage', 'status', 'lineage-record',
+  'manage', 'status', 'lineage-record', 'notify',
 ]
 // snapshot-info 返回 { has, time, id, ...feedback }，无 ok 字段（客户端按
 // has 判定）；其余端点全部走统一 { ok } 形状。白名单放行而非静默豁免。

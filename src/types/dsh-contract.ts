@@ -293,6 +293,10 @@ export interface HostContext {
   get<T = unknown>(name: string): T | undefined
   inject(names: string[], callback: (ctx: InjectedContext) => void): unknown
   on(event: string, listener: (session: Session, event: SessionEvent) => void): unknown
+  // 事件广播（issue #19 撤回终态事件接缝）：notify 端点经此把 payload 发给
+  // 同宿主插件。与 on 并列的最小面建模（事件名 + 单 payload），cordis 其余
+  // 变参能力不在插件消费面上——暴露多了只会诱导绕过分层
+  emit(event: string, ...args: unknown[]): unknown
   effect(fn: () => void | (() => void | Promise<void>)): unknown
 }
 

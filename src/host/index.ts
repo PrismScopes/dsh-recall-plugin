@@ -376,6 +376,9 @@ export function apply(ctx: HostContext, config: ResolvedConfig) {
     // config），config-reset 会按旧值「恢复默认」。活绑定让消费者每次调用
     // 都取到当前闭包。
     applyResolvedConfig, readSettings: () => readSettings(), DEFAULTS, rescueRollback, intentJournal, E,
+    // issue #19 撤回终态事件广播：闭包注入保持 ctx 不解构纪律，routes 域
+    // 不直接持有 ctx；单测可注入桩断言事件名与 payload
+    emitEvent: (event: string, payload: unknown) => ctx.emit(event, payload),
   }
   const endpoints = {
     ...createRoutesCore(deps),

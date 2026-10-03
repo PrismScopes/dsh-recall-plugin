@@ -11,6 +11,8 @@
  */
 
 import type { ReactApi, UtilApi } from './util.js'
+import { buildRecallNotify } from './util.js'
+import type { RecallNotifyOutcome } from './util.js'
 import { recallNodeLog } from './log.js'
 import { zhTranslate } from './locales/index.js'
 import type { Translate } from './locales/index.js'
@@ -579,6 +581,10 @@ export function buildRecallNode(
       if (recall.stage !== 'confirm') return
       const changes = recall.changes || []
       const previewCut = typeof recall.cutSeq === 'number' ? recall.cutSeq : null
+      // 终态上报基座（issue #19）：五处上报点共用；sessionId 断言收口语义同
+      // fork 处（撤回按钮可见时恒有）。载荷组装在 util.buildRecallNotify（纯函数，
+      // 六场景矩阵单测直钉），这里只负责 fire-and-forget 发送
+      const notifyBase = { sessionId: String(sessionId || ''), messageId, scope }
       // P0-3：携带预览摘要（total 是完整计数，与 Host 侧 diffFor 的 total
       // 对齐；changes 截断到 500 条，不能用来比对）。Host 端据此在 execute
       // 时校验「预览后文件集是否变化」，变了则返回 STALE 拒绝执行。
@@ -619,6 +625,15 @@ export function buildRecallNode(
             })
             return
           }
+          // 终态上报（issue #19）：护栏拒绝（AGENT_BUSY/NO_SNAPSHOT 等）发
+          // failed(execute) 且透传 code 供下游过滤；STALE 是中间态已提前
+          // return 不上报（规格 §一决策表）。fire-and-forget：旧 host 对
+          // notify 返 404/未知端点，静默忽略即版本错位容错（§3.4）
+          api('notify', buildRecallNotify(notifyBase, {
+            outcome: 'execute-rejected', cutSeq: previewCut,
+            code: res && typeof res.code === 'string' ? res.code : undefined,
+            error: messageFor(res, ''),
+          })).catch(() => {})
           setRecall({ stage: 'error', message: messageFor(res, t('fallback.rollback')) })
           return
         }
@@ -626,6 +641,9 @@ export function buildRecallNode(
         const cutSeq = typeof res.cutSeq === 'number' ? res.cutSeq : previewCut
         let chatReverted = false
         let chatError = ''
+        // complete 上报的 archiveRequested 追踪：归档是 fire-and-forget，
+        // 事件只表示「已发起」，不等归档落定
+        let archiveRequested = false
         // 回填目标会话：对话回退成功 → fork 出的新会话（视图已切过去）；
         // 失败/无切点 → 当前会话
         let fillTarget = sessionId
@@ -654,6 +672,7 @@ export function buildRecallNode(
               api<unknown>('lineage-record', { childId, parentId: sessionId }).catch(() => {}) // 静默（纯增量 UI，见上）
               // 回退前的原会话归档（可关）：只是从列表隐藏、可恢复
               if (pluginConfig.archiveOriginal && workspacesSvc && typeof workspacesSvc.archiveSession === 'function') {
+                archiveRequested = true
                 // stopActivity：官方归档前经 `workspace/session-activity` 瀑布问「这会话还有
                 // 什么在跑」（agent 回合 / jobs 后台作业 / subagent / schedule），有就抛
                 // workspace/session-active 拒归档。之前不传该选项、又把 reject 吞掉，于是
@@ -670,10 +689,16 @@ export function buildRecallNode(
               }
             } else {
               chatError = t('recall.chat.noChild')
+              // 终态上报（issue #19）：fork 返空与抛错同语义——文件已回退但
+              // 对话未回退，发 failed(fork) 而非 complete（下游若按 complete
+              // 清记忆会把「对话还在」的回合误清，规格 §一决策表）
+              api('notify', buildRecallNotify(notifyBase, { outcome: 'fork-failed', cutSeq, error: chatError })).catch(() => {})
             }
           } catch (error) {
             // fork 失败只降级为「仅文件回退」（chatError 进结果面板，见上方注释）
             chatError = String(error)
+            // 终态上报：fork 抛错 → failed(fork)，理由同上（防下游误清记忆）
+            api('notify', buildRecallNotify(notifyBase, { outcome: 'fork-failed', cutSeq, error: chatError })).catch(() => {})
           }
         }
         // 把被撤回的消息文本回填到输入框（可在设置页关闭）
@@ -691,9 +716,23 @@ export function buildRecallNode(
         // 注：快照 tag 在 Host 侧有意保留（幂等回退），刷新页面后该消息的
         // 撤回按钮会重新出现——这是「可再次回退到同一点」的特性而非 bug。
         setRecall({ stage: 'done', count: typeof res.count === 'number' ? res.count : changes.length, chatReverted, chatError })
+        // 终态上报（issue #19）：撤回链完整走完才发 complete（fork 失败路径
+        // 已发过 failed(fork)，按 chatError 收口防双发矛盾终态——complete 与
+        // failed 并存会让下游按 (sessionId,messageId,cutSeq) 幂等去重失灵）
+        if (chatError === '') {
+          api('notify', buildRecallNotify(notifyBase, {
+            outcome: 'complete', cutSeq,
+            childSessionId: chatReverted ? (String(fillTarget || '') || null) : null,
+            count: typeof res.count === 'number' ? res.count : changes.length,
+            chatReverted, archiveRequested,
+          })).catch(() => {})
+        }
       }).catch((error) => {
         // 端点异常落错误态（文件可能未回退，面板提示可重试）
         setRecall({ stage: 'error', message: String(error) })
+        // 终态上报（issue #19）：execute 抛异常发 failed(execute)——此时文件
+        // 是否已回退不确定（规格 §一注明），下游按 stage 自行决定保守策略
+        api('notify', buildRecallNotify(notifyBase, { outcome: 'execute-threw', cutSeq: previewCut, error: String(error) })).catch(() => {})
       })
     }
 

@@ -1,25 +1,13 @@
-# BLOCKED.md — 待裁决清单（win32 shell 方言修复，2.3.22）
+# BLOCKED — 待裁决清单（撤回事件接缝 issue #19，v2.5.0）
 
-无阻塞项：本轮全部任务（0-5）按任务书完成，未出现规格与代码冲突、未出现需要停下来问人的决策点。以下是把「不该顺手做」的事按规矩留在这里，供维护者裁决。
+技术验收全绿（typecheck 0 / 单测 497 / client 90 / verify:host 13 端点 / build 产物同步），以下为需要领导确认或知悉的事项，无一项阻塞交付：
 
-## 1. 文档同步（白名单外，未做）
+1. **CODEBUDDY.md 是指向 AGENTS.md 的符号链接**（2026-08-28 建立，`CODEBUDDY.md -> AGENTS.md`）。任务书白名单允许修改 CODEBUDDY.md 但未列 AGENTS.md；规格 M4 要求的「routes-core 行加 notify、types 行加 events.ts」只能经真实目标 AGENTS.md 落地（同一 inode，共两行文件地图同步）。已照做并记入 PROGRESS.md——若领导认为此举越界，`git checkout -- AGENTS.md` 撤销两行即可，其余交付不受影响。注意 AGENTS.md 同时含有任务开始前就存在的、领导自己的未提交修改，本次改动（两行）与其混在同一文件的工作区 diff 里。
 
-- `AGENTS.md` 不在本次白名单内，故两处未改：
-  - 「命令脚本」表 `npm test` 仍写「17 文件 227 例」（实际 28 文件 361 例）；
-  - 「已知坑」索引止于 I34——I35（fork 切点携带 inbox 入队事件）与本次新增的 I36 都没有一行条目（I36 细节已在 `docs/compat-audit.md`）。
-- `README.md`/`README.en.md` 的「测试」节同样写着「17 个文件 227 例」——README 虽在白名单内，但刷新过时计数属任务书点名的「顺手活」，按要求不做，只补了本次的行为说明。
-- `docs/README.md` 与 `docs/plans/improvement-plan.md` 的待实施计划索引在本次实施前就已改成指向本计划（工作区既有未提交改动，非本次交付内容）。计划已实施，这两处索引的「待实施」措辞与计划文档的「状态：待实施」抬头需要一并更新，且计划文档是否移入 `docs/plans/completed/`（据仓库惯例需全量验收后）由维护者裁决。
-- `docs/compat-audit.md` 顶部「核验段」未追加 2.3.22 条目（I36 只写进正文条目；核验段是每次 dsh 升级时的记录位，本次非 dsh 升级）。
+2. **任务开始前已存在的脏工作区**（非本次引入，本次零触碰）：`.agents/skills/` 下 3 个修改 + 5 个未跟踪目录、`AGENTS.md` 的既有修改、`docs/plans/pending/plan-recall-event.md`（规格文档本身，未跟踪）。任务 4 的验收「git status 改动全部落在白名单内」按「本次任务引入的改动」核对通过——全量 porcelain 里上述文件属任务前状态，请领导知悉后自行处置。
 
-## 2. 设计偏离（已实现并记录，请复核是否接受）
+3. **HEAD 中的旧 `PROGRESS.md`/`BLOCKED.md`** 是上一个任务（issue #15 win32 shell 方言修复）的遗留，工作区里在本次任务开始前已被删除；本任务按白名单重建了同名文件（issue #19 内容）。git 视角显示为 modified 而非新增，属预期。
 
-- 探针入口按命令分流：带 `RECALL_CLEANUP` 哨兵的失败清扫脚本不触发方言探针、只读缓存（未判定时按 pwsh 走官方通道）。计划未写此项；理由与影响见 `PROGRESS.md`「实施差异」与计划文档「实施记录」。若维护者要求严格照计划无条件探测，需要同步调整 `tests/unit/diagnostics.test.js` 的假 shell 期望（该文件不在本次白名单，故未动）。
+4. **顺手活登记：无**（实施过程中未发现需要另行裁决的别的 bug 或重构诱惑；途中自行修正的两个问题均为本次新增测试自身的断言语义，见 PROGRESS.md 任务 2/任务 3 节）。
 
-## 3. 未实弹的验收子项
-
-- 计划验收 3 的子项「人为 kill 制造 stale 锁后快照自愈」未执行（任务书步骤 3 只要求重复步骤 2 全链）；建议下次真机冒烟时补：在影子仓库 `git/` 下手工造 `index.lock`（`LastWriteTime` 拨到 10 分钟前）后发消息，预期失败一次并进「最近错误」，下一条消息自愈。
-- POSIX 宿主配 pwsh 执行器的组合仍不支持（计划已声明不支持，探针按方言枚举保留扩展位）。
-
-## 4. 冒烟产生的遗留数据（非仓库改动）
-
-- 本机 `~/.dsh/dsh-recall-snapshots/<hash of D:\workspace\dsh-plugin\2.3.13>/` 多出 3 条冒烟快照（2 条 `snap-<消息ID>` + 1 条 `snap-pre-rollback-<ts>`，共 25 tag）；该工作区本就是空目录、无项目文件受影响。如需彻底清理，可在设置页快照管理里删除对应会话或删除该工作区的整个 store 目录。
+5. **M5 实弹验证已完成**（2026-10-03，领导授权执行；四项全过，详录 `docs/plans/completed/smoke-checklist-records.md` 第十节，本文档不重复）。无新增阻塞。两点知悉级事项：① `execute` 返回的 `count` 是「回退触达条数」（restored+deleted）而非 diff 条数——既有语义，事件消费方文档已按此口径，若要改为 diff 口径属独立行为变更，请领导裁决是否立项；② 遗留动作归领导：issue #19 回复（M5 已具备依据）、2.5.0 发版、计划文档随 issue 关闭归档至 `docs/plans/completed/`。
