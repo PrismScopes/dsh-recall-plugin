@@ -19,9 +19,12 @@
 > （发布后 CLI 初查仍解析到 2.4.8、传播约数分钟，packument `modified=2026-10-03T11:23:36Z`；故产物核验改走
 > registry tarball 端点直下）。**发布产物核验**：tarball 175973 字节，解包后 **20/20 文件与工作区逐字节 SHA256 一致**
 > （17 个 lib 产物 + package.json + CHANGELOG.md + README.md）。**连带处理**：2.4.8（issue #19）此前「npm 已发、
-> git 未提交/未 tag」——本次补录提交 `d008fb1`；**v2.4.8 无 GitHub Release**（Release 列表中先建的 v2.4.9；
-> 如需补齐，以 `d008fb1` 为 target 建 `v2.4.8` tag + Release）。**本机 profile 实装验证本轮未跑**（如需：
-> npm 模式 `pnpm update dsh-recall-plugin` 后重启 `dsh web`，核 `/api/recall/status` 与插件日志无 skip 行）。
+> git 未提交/未 tag」——本次补录提交 `d008fb1` 并**补齐 v2.4.8 tag + GitHub Release**（tag 指向 `d008fb1`、
+> `--latest=false` 保持 v2.4.9 为 Latest；Release 清单 v2.4.9(Latest)/v2.4.8/v2.4.7 次序正确）。**本机 profile
+> 实装验证通过**：web profile pin `2.4.6` → `2.4.9`、`minimumReleaseAgeExclude` 补 `2.4.9`、`pnpm install`
+> 实装 2.4.9（peer 窗口含 0.2.1 段；`pnpm peers check` 的 missing 清单为宿主提供型、dshmarket 等同款，属既有
+> 状态）；启停 `dsh web`（全局 dsh 0.2.1-alpha.1 宿主）——stderr 出现插件自身 `recall shell dialect probe: pwsh`、
+> **无 skip/compat 行**（兼容门禁未跳过本插件），进程已停、无残留。
 >
 > **0.2.1-alpha.1 核验（2026-10-03）——零破坏版本，无需改码；peer 窗口须追加 0.2.1 段**：**npm 已发布**（dist-tag `alpha` 指向本版，
 > tag `dsh-v0.2.1-alpha.1`，2026-10-03 发布、0.2.0 线补丁版首个 alpha；`latest`/`next` 仍 0.2.0-rc.2——**装本版须显式写版本号**），
