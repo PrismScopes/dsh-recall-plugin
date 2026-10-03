@@ -7,6 +7,22 @@
 >
 > 出处标注为 2026-09-01 核验（alpha.3）；每次 dsh 升级后按「复查动作」更新本节「核验日期」。
 >
+> **2.4.9 发版核验（2026-10-03）**：插件 **2.4.9 已发布**（npm `latest`＝2.4.9、GitHub Release `v2.4.9` 已创建、
+> 非 draft/prerelease，tag `v2.4.9` 指向 `5b21369`）；发布提交两个——`d008fb1`（feat：issue #19 撤回完成事件/回调，
+> 随 2.4.8 发布、本次补录进历史）+ `5b21369`（chore(release)：2.4.9——dsh 0.2.1-alpha.1 兼容声明，peer 窗口
+> 追加 `>=0.2.1-alpha.1 <0.3.0` 段、上限放宽覆盖 0.2 全线）。**推送前网络受限**：github.com:443 直连超时、
+> 本机 git 全局代理 `127.0.0.1:48046` 未启动、`.ssh` 无密钥；经用户提供的 `127.0.0.1:48047` 代理以
+> `-c http(s).proxy` 单次覆盖完成 fetch/push（不改 git 配置）；npm registry 直连正常，publish 未走代理。
+> 发版前门禁：`typecheck`、`build`（`lib/` 三产物同步、`lib/client.js` 156136 字节）、单测 **497/497**、
+> `test:client` **90/90**、`test:probe` **52/52**、`verify:host` 装配断言全过（端点 13 项）、`check:upgrade` 三层全绿
+> （`check:dsh` `✔ 全部一致`）。registry 端点 `/dsh-recall-plugin/2.4.9` 与 `dist-tags.latest=2.4.9` 双确认
+> （发布后 CLI 初查仍解析到 2.4.8、传播约数分钟，packument `modified=2026-10-03T11:23:36Z`；故产物核验改走
+> registry tarball 端点直下）。**发布产物核验**：tarball 175973 字节，解包后 **20/20 文件与工作区逐字节 SHA256 一致**
+> （17 个 lib 产物 + package.json + CHANGELOG.md + README.md）。**连带处理**：2.4.8（issue #19）此前「npm 已发、
+> git 未提交/未 tag」——本次补录提交 `d008fb1`；**v2.4.8 无 GitHub Release**（Release 列表中先建的 v2.4.9；
+> 如需补齐，以 `d008fb1` 为 target 建 `v2.4.8` tag + Release）。**本机 profile 实装验证本轮未跑**（如需：
+> npm 模式 `pnpm update dsh-recall-plugin` 后重启 `dsh web`，核 `/api/recall/status` 与插件日志无 skip 行）。
+>
 > **0.2.1-alpha.1 核验（2026-10-03）——零破坏版本，无需改码；peer 窗口须追加 0.2.1 段**：**npm 已发布**（dist-tag `alpha` 指向本版，
 > tag `dsh-v0.2.1-alpha.1`，2026-10-03 发布、0.2.0 线补丁版首个 alpha；`latest`/`next` 仍 0.2.0-rc.2——**装本版须显式写版本号**），
 > `npm install -g @deepseek-ai/dsh@0.2.1-alpha.1` 全局实装（22 增 / 3 删 / 536 替换包、1 分钟；cordis 随装 4.0.5-alpha.1、
