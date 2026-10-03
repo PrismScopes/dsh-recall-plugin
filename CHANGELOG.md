@@ -2,6 +2,36 @@
 
 本文件格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循语义化版本。
 
+## [2.4.9] - 2026-10-03
+
+### 变更
+
+- **dsh 0.2.1-alpha.1 兼容**（升级核查见 [docs/upgrade-assessments/dsh-0.2.1-alpha.1.md](docs/upgrade-assessments/dsh-0.2.1-alpha.1.md) 与 [docs/compat-audit.md](docs/compat-audit.md) 头部 0.2.1-alpha.1 段）：全树内容级 diff（0.2.0-rc.2 整包残留作基线）确认插件注册/消费契约（chat.node 槽位与 props、`ChatNodeKind` 全集、`sessions.fork`/binding、`updateQueue`、设置双 slot）字节级相同——**无需改码**；peer 窗口 6 条 `dsh-*` 追加 `>=0.2.1-alpha.1 <0.3.0` 段（npm prerelease 门槛要求显式同 tuple 段；上限按发版决定放宽，覆盖 0.2 全线正式版），cordis 追加 `>=4.0.5-alpha.1 <4.0.6`、schemastery 追加 `>=3.18.5-alpha.1 <3.18.6`（两者产物除版本号外逐字节相同），`dsh.compatibility.dshReleases` 补 `0.2.1-alpha.1: compatible`；`docs/reference/` 镜像按 tag 重拉（13 源中 4 份实质差异：反向代理发布链接、桌面端系统分配端口 + invariant 移除文案、工具 delta 匹配语义与 `ConversationNodeDefinitionInput`、定时任务投递语义）。正向受益：官方修复插件启停时样式被误移除（`claimStyles`）与队列滞留（惠及 G1 周边时序）。门禁：`test:probe` 52/52、`verify:host` 装配断言全过、`check:dsh` 全绿。
+
+### 文档
+
+- README 双语：兼容范围标注与 peer 窗口折叠块同步至 dsh 0.2.1-alpha.1（窗口上限放宽至 `<0.3.0` 的说明一并落地）。
+- `docs/dsh-contract.md`：版本核验记录只保留最新（0.2.1-alpha.1），历次版本记录归口 compat-audit 与 upgrade-assessments，消除双写。
+- 新增待实施计划 `docs/plans/pending/plan-refill-references.md`：引用 chip 回填（撤回后把被撤回消息里的 @文件/目录引用以可点击 chip 形式放回输入框；依赖 dsh 0.2.1-alpha.1 结构化草稿能力）。
+
+## [2.4.8] - 2026-10-03
+
+撤回完成事件/回调（issue #19，方案见 [docs/plans/completed/plan-recall-event.md](docs/plans/completed/plan-recall-event.md)）：撤回到达终态时广播 cordis 事件 `dsh-recall/complete` / `dsh-recall/failed`，供同宿主任意插件监听（如长时记忆插件清理被撤回回合的记忆）。纯增量 opt-in：不订阅的插件零感知，撤回链路行为逐字节不变（事件发送失败、监听器抛错、下游慢执行均不影响主流程）。
+
+### 新增
+
+- **事件契约（`src/types/events.ts`，单一事实源）**：`dsh-recall/complete`（`sessionId`/`childSessionId`/`scope`/`cutSeq`/`messageId`/`root`/`count`/`chatReverted`/`archiveRequested`/`time`，`version: 1`）与 `dsh-recall/failed`（`stage: 'execute' | 'fork'`/`sessionId`/`messageId`/`scope`/`cutSeq`/`root`/`code?`/`error`/`time`）。首发即稳定公共契约（非 experimental）：新增字段走 minor，破坏性变更走 major 且 `version` 升 2。payload 不含消息正文；事件名与契约文件的绑定由 `tests/types/events-contract.test.ts` 编译期双向断言维持（host 产物因 build-host 逐文件转译不覆盖 `types/`，事件名在 routes-core 本地字面量声明）。
+- **host `notify` 端点（routes-core.ts）**：client 撤回终态上报的接缝——校验（缺 `status`/`sessionId`/`messageId` 复用 `RECALL_BAD_TYPE`，不加新错误码）→ `resolveRoot` 尽力 enrich（失败落 `null` 不阻断）→ `queueMicrotask` + try/catch 调 `ctx.emit`（下游抛错/慢执行不反噬端点）→ 恒 `{ ok: true }`。不进串行队列（零 git 操作）、不依赖 store（避开 lineage-record 的 NO_STORE 早退会吞事件的缺陷）；index.ts 以闭包注入 `emitEvent: (e, p) => ctx.emit(e, p)` 保持 ctx 不解构纪律。verify-host 端点白名单同步至 13 项（未同步时两处断言红灯，反向验证实测）。
+- **client 终态上报（recall-node.ts + util.ts）**：`buildRecallNotify` 纯函数按语义决策表组装载荷（六场景矩阵单测直钉），`executeRecall` 五处上报点 fire-and-forget（`.catch` 静默）——execute 拒（透传 `code`）/ execute 抛 → `failed(stage:'execute')`；fork 抛错/返空 → `failed(stage:'fork')`（**绝不发 complete**，防下游误清该回合记忆）；撤回链完整走完 → `complete`（`chatReverted` 为对话是否真回退的判据）。STALE 自动重预览是中间态，不上报。版本错位容错：旧 host 无此端点时上报静默失败（404），撤回不受影响；旧版 client 从不上报。
+- **README 双语「事件契约」章节**：事件名、payload 字段表、语义要点（STALE 不发、fork 失败只发 failed、`(sessionId, messageId, cutSeq)` 三元组幂等、隐私面）、semver 演进规则与版本错位矩阵、可直接粘贴的监听示例。
+
+### 测试
+
+- `tests/unit/routes-notify.test.js`（11 例）：参数校验缺失码 / root enrich 成功·抛错·返空 / emit 异步广播与 payload 字段 / 监听器抛错仍恒 `ok:true` 且 `recordError` 留痕 / `stage`-`code` 语义。
+- `tests/unit/recall-notify.test.js`（8 例）：`buildRecallNotify` 规格第一节六场景 + scope 透传与字段兜底。
+- `tests/client/recall-node.test.ts` 追加 7 例：五处接线点的调用时机与载荷（含 STALE 不发 notify、上报失败静默不反噬主链）。
+- `tests/types/events-contract.test.ts`：事件名字面量钉死、payload 形状断言、host 本地常量 ↔ 契约常量双向绑定、notify 端点返回类型双向绑定。基线 478 → 497（39 文件），client 83 → 90。
+
 ## [2.4.7] - 2026-09-30
 
 质量加固专项批次（[docs/plans/completed/plan-quality-hardening.md](docs/plans/completed/plan-quality-hardening.md) A1–A8，八项分四波：质量基建 → 数据安全 → 测试基建 → i18n）。2026-09-30 该计划连同 `plan-warmup-unhandled-rejection` 已归档到 `docs/plans/completed/`（活体冒烟第九节 R-1〜R-6 全过）。

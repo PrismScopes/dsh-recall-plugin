@@ -7,6 +7,42 @@
 >
 > 出处标注为 2026-09-01 核验（alpha.3）；每次 dsh 升级后按「复查动作」更新本节「核验日期」。
 >
+> **0.2.1-alpha.1 核验（2026-10-03）——零破坏版本，无需改码；peer 窗口须追加 0.2.1 段**：**npm 已发布**（dist-tag `alpha` 指向本版，
+> tag `dsh-v0.2.1-alpha.1`，2026-10-03 发布、0.2.0 线补丁版首个 alpha；`latest`/`next` 仍 0.2.0-rc.2——**装本版须显式写版本号**），
+> `npm install -g @deepseek-ai/dsh@0.2.1-alpha.1` 全局实装（22 增 / 3 删 / 536 替换包、1 分钟；cordis 随装 4.0.5-alpha.1、
+> schemastery 3.18.5-alpha.1——两者产物**除版本号外逐字节相同**）。**核验方式为全树内容级 diff**：npm 在 Windows 上清理失败留下的
+> `.dsh-EBhnoWNL` 残留**正好是 0.2.0-rc.2 整包副本（462.3MB / 26639 文件）**，直接用作基线（比对后已删除）；287 个子包版本号全部
+> lockstep 变更（不可用版本号定位），故按「逐包文件集合哈希 → 关键包逐文件归一化版本号比对 → 契约文件逐行 diff」三层定位变更面，
+> 并以 GitHub compare 266 commits 交叉验证。**零改动集合（除 package.json 版本号 / README 文案 / 注释外无文件变化）**：6 个 peer
+> 出处包 `dsh-session-query`、`dsh-settings`、`dsh-shell`、`dsh-host-webserver`（各仅 README）、`dsh-session`（README + 注释 +
+> `invariant.js` 移除）、`dsh-sandbox-policy`（README + `invariant.js` 移除）；其余 `dsh-base`、`dsh-session-projection`、
+> `dsh-session-persistence`、`dsh-host-plugin-inventory`、`dsh-client-ui-settings-plugins`、`dsh-session-format`、
+> `dsh-session-format-v3-to-v4`、`dsh-atomic-write`、`dsh-session-reference`、`dsh-agent`（仅注释 + invariant 移除）、
+> `dsh-client-connection`、`dsh-client-ui-slots`（各仅 README）——**I1/I2/I4/I5/I6/I7/I8/I9/I12/I27/I29/I30/I31/I32/I33/I34/I35/I36/I37/I38/I39/I40
+> 的出处包全部涵盖**。**消费/注册契约文件字节级相同**：ui-chat `contract/slots.d.ts`（chat.node props，`renderMessageImages`/`loadImage`
+> 在位）与 `contract/chat-nodes.d.ts`（`ChatNodeKind` 全集）、`chat/ChatNodeSeat.d.ts` / `chat/MessageItem.d.ts`；api-session-controller
+> `client/contract/sessions.d.ts`（fork/binding）＋`client/sessions/session.d.ts`＋`client/contract/session.d.ts`（`updateQueue`）；
+> ui-conversation `service.d.ts`（`updateQueue`/草稿附件链）；ui-workspace `navigation.d.ts` 的 `openSession` 面。**真增量（插件不消费或纯增/正向）**：
+> ① 官方草稿系统重构（ui-conversation 新增 `DraftSnapshot`/`DraftInput`/`readConversationDraft`/`requestDraftInitialization`，
+> `bindDraftMirror`→`bindDraftPersistence`，**`InputActions.setDraft(text: string)` 签名未变**、`InputFacade.setDraft` 放宽为 `DraftInput`——
+> 插件回填链零适配）；② ui-chat `StatsPills` 拆为 `ActivityPill`/`UsagePill`、`ToolCallBlock.root` 可选化、新增 `ToolArgs = PartialArguments`、
+> 内部 `partial.d.ts` 移除（插件零消费）；③ ui-workspace `startSession` 新增可选 `options`（新会话预填）、api-session-controller `SessionList`
+> 构造器新增内部 `workSliceMs`（分片提速，插件不实例化该类、走 `sessionQuery` 服务）；④ plugin-manager `slot-contract.d.ts` 纯加法
+> （`plugins.add.actions`，`plugins.bundle.config` 原样）；⑤ invariant 运行时插件与 `./invariant` 导出全树移除（插件零引用，`src/` 搜索零命中）；
+> ⑥ **正向**：`dsh-client-modules` 的 `claimStyles` 修复（未认领 `<style>` 先快照、只认领工厂运行期间新增——启停插件不再误移别家样式）；
+> 队列滞留修复（目标任务停止→恢复→再停止）惠及 G1 周边时序。**门禁**：`test:probe` **52/52**、`verify:host` 装配断言全过
+> （inject=shell,sessions,agents、端点 13 项）、`check:dsh` 在 peer 窗口追加后全绿。**兼容声明**：6 条 `dsh-*` peer 窗口追加
+> `>=0.2.1-alpha.1 <0.2.2` 段（prerelease 门槛：旧窗口 upper `0.2.1` 不带 prerelease、候选 tuple 0.2.1 与 lower 0.2.0 不同 tuple 的复合
+> 门槛，与 issue #517 同根因；新段同时覆盖 0.2.1 线后续 alpha/beta/rc/正式版——**同 minor 线不追加 tuple 的惯例只适用于 tuple 不变的
+> 版本推进，跨 tuple 必须显式追加**）；**随 2.4.9 发版按决定放宽上限至 `<0.3.0`**（0.2 全线正式版自动放行；0.2.2+ tuple 的 prerelease
+> 仍受同一门槛约束，待核验后另加段）；cordis `^4.0.1 || >=4.0.5-alpha.1 <4.0.6`、schemastery `^3.18.1 || >=3.18.5-alpha.1 <3.18.6`
+> （两者产物除版本号外逐字节相同，属已验证窗口）；`dshReleases` 补 `0.2.1-alpha.1: compatible`。**观察项（非阻塞）**：① 官方草稿系统
+> 演进中——插件 `setDraft(string)` 仍在兼容面（注释明示接受 plain text），若未来字符串分支废弃需改走 `DraftSnapshot`（按 I34 复查动作跟进）；
+> ② `ToolCallBlock.root` 可选化与 `SessionList` 构造器签名变化均为内部/不消费面；③ 既有观察项延续（`fork.onCreated` 未用、`dsh-tool-jobs`
+> 唤醒上限、`sessionQuery` 三 API 仍 `@deprecated`）。**待办**：活体冒烟本轮未跑（本版对插件零契约变更；按惯例发版前补，建议关注草稿回填
+> 与「新会话预填」共存、插件启停样式隔离观感）。评估实证见
+> [upgrade-assessments/dsh-0.2.1-alpha.1.md](upgrade-assessments/dsh-0.2.1-alpha.1.md)。
+>
 > **0.2.0-rc.2 核验（2026-09-29）——零破坏版本，无需改码**：**npm 已发布**（dist-tag `next` 指向本版，tag `dsh-v0.2.0-rc.2`，
 > 2026-09-29 发布；`latest` 仍 0.1.7-rc.2、`alpha` 仍 0.1.7-alpha.2——**装最新仍须显式写版本号**）。**发布初期整条线对 npm 用户不可装**：
 > `dsh-web-app@0.2.0-rc.2` 精确 pin 的 `@deepseek-ai/dsh-client-ui-settings-account@0.2.0-rc.2` 漏发（注册表直查与 tarball HEAD 双证 404；

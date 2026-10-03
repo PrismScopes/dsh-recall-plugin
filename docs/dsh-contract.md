@@ -2,7 +2,7 @@
 
 > 插件视角的官方（deepseek-harness）API 契约参考：插件**依赖面**逐项给出签名与核验状态，插件**未依赖面**给出全量清单与一句话说明。
 >
-> * 对应版本：**dsh 0.2.0-rc.2**（tag `dsh-v0.2.0-rc.2`，2026-09-29 发布、0.2.0 系列第二个候选版本；npm dist-tag `next` 指向本版（`latest` 仍 0.1.7-rc.2、`alpha` 仍 0.1.7-alpha.2）——**装「最新」仍须显式写版本号**；`npm install -g @deepseek-ai/dsh@0.2.0-rc.2` 全局实装（534 包替换、2 分钟；工作区 `dsh-settings` junction 自动跟随）。**对插件零破坏、无需改码**——核验为 **tarball 级逐文件 SHA256 比对**（发布后一度因上游漏发 `@deepseek-ai/dsh-client-ui-settings-account@0.2.0-rc.2`（被 `dsh-web-app` 精确 pin）导致整条线对 npm 用户不可装约 2 小时，`--install-strategy=shallow`／`--omit=optional`／cwd `overrides` 三类变通实测均无效；补发后安装并复核）：8 个 Host 依赖包（6 个 peer ＋ `dsh-base`／`dsh-plugin-manager`）**只有 package.json 版本号变化**、四个注册/消费面契约文件（ui-chat `contract/slots.d.ts`、plugin-manager `slot-contract.d.ts`、api-session-controller `contract/sessions.d.ts`、ui-conversation `contract/slots.d.ts`）**字节级全等**；真增量全落在插件不消费处：ui-chat（耗时格式化重构、鲸鱼尾改 APNG、locale）、ui-theme（字号范围 12–17→10–22）、api-remotes（新增 `dsh-user-questions/remote` 一行 export type）、dsh-schedule（提醒框架文案改固定句、无新事件类型与消息 kind）、dsh-tool-ask-user（异步问答 opt-in `Config{mode:'legacy'|'timed', timeout?}`、默认 legacy）、plugin-manager（`problem` 增 `'shipped'`、`managementText` 增可选 `installing`）、session typert 签名表增可选 `userQuestions`、镜像 `09-architecture.md` 桌面段重写（净 −173 字符）。**门禁**：`test:probe` **52/52**、`verify:host` 装配断言全过（inject=shell,sessions,agents、端点 12 项）、`check:dsh` 在镜像与本文档字段同步后全绿（6 条 peer 均落在新增的 `>=0.2.0-rc.1 <0.2.1` 窗口内）。**兼容声明**：peer 范围由既有 `>=0.2.0-rc.1 <0.2.1` 窗口天然覆盖——按 2.3.11 起约定，同 minor 线内出新版**不追加 tuple**；`dshReleases` 补 `0.2.0-rc.2: compatible`。详见 compat-audit 头部 0.2.0-rc.2 段与 [upgrade-assessments/dsh-0.2.0-rc.2.md](upgrade-assessments/dsh-0.2.0-rc.2.md)。**0.2.0-rc.1 亦为零破坏版本**——全树逐文件哈希比对（528 包中 310 包仅版本号 lockstep 变更；类型面 65 改 / 23 增 / 0 删，运行时 JS 71 改 / 11 增 / 2 删）＋消费面符号计数（11 符号 0 差异）＋槽位契约逐行核对：`dsh-shell`/`dsh-settings`/`dsh-session-query`/`dsh-agent`/`dsh-client-connection`/`dsh-host-webserver`/`dsh-sandbox-policy`/`dsh-client-ui-slots`/`dsh-client-ui-renderer`/`dsh-pwsh-local`/`dsh-cordis-host-runner`（插件加载面）等出处包字节未变；唯一接口增量是 `sessions.fork` 的可选 `onCreated`（向后兼容、插件不传）；真增量集中在插件管理页 UI 与配置继承值计算、会话标题「未命名」语义、消息提交埋点，且自动化任务改由可选 bundle `dsh-experimental-schedule-bundle` 提供（默认关闭、需在插件管理页开启）。详见 compat-audit 头部 0.2.0-rc.1 段与 [upgrade-assessments/dsh-0.2.0-rc.1.md](upgrade-assessments/dsh-0.2.0-rc.1.md)。**0.1.7-rc.2 亦为零破坏版本**——聚焦消费面内容级 diff（28 包全文件 SHA256 比对）+ 符号级复核（13 包 × 23 符号计数 0 差异）：客户端契约目录 `api-session-controller/lib/types/client/**` 字节未变、12 个核心接缝包仅动版本号，真增量集中在模型选择/账号、工具热更、快捷键、归档筛选 UI 与额度提示；详见 compat-audit 头部 0.1.7-rc.2 段与 [upgrade-assessments/dsh-0.1.7-rc.2.md](upgrade-assessments/dsh-0.1.7-rc.2.md)。**rc.1 亦为零破坏版本**：全树内容级 diff 实证（915 条变更、647 个非 package.json 文件改动，三个消费契约文件字节级一致），并新增**启动期插件/runtime 兼容性门禁**（peer 范围驱动；本插件 6 条 `dsh-*` peer 实测放行、无需豁免）；前序基线 0.1.7-alpha.2 `0010283`、0.1.7-alpha.1 `c36a83f`、0.1.6-alpha.2 `ddefc45`、0.1.6-alpha.1 `0a15e36`、0.1.5-rc.2 `fb2c4b9` 等均已并入；Session format 为 **V4**）。**alpha.1 起两处接缝换代（已双分支适配，alpha.2 无新增破坏面）**：① **shell 执行接缝**——`ShellExecutor` 删 `run`/`start`，改 `resolve` + `execute(spec): Promise<ShellExecution>`（结果走 `result()`），详见 §1.1 shell；② **settings 面**——`dsh-settings` 导出面只剩 `SettingsForms`，ns 变成 profile entry id、可写字段需 schema 标 `.volatile()`，详见 §1.1 settings。另：包布局收进 `dsh/node_modules/@deepseek-ai/*`（I11 无破坏）、fork 实现重写（边界语义等价，I35 保持）、事件集 54→59（§四）、Session 日志升级 V4 并附批量迁移工具（保留原始 message id，插件以 id 为主键、以真实 `e.seq` 推 cutSeq，免疫）。**核验与实施记录见 compat-audit 头部 0.1.7 段与 I38/I39**）
+> * 对应版本：**dsh 0.2.1-alpha.1**（tag `dsh-v0.2.1-alpha.1`，2026-10-03 发布、0.2.0 线补丁版首个 alpha；npm dist-tag `alpha` 指向本版（`latest`/`next` 仍 0.2.0-rc.2）——**装本版须显式写版本号**；`npm install -g @deepseek-ai/dsh@0.2.1-alpha.1` 全局实装（22 增 / 3 删 / 536 替换包、1 分钟）。**对插件零破坏、无需改码；peer 窗口追加 `>=0.2.1-alpha.1 <0.3.0` 段**（prerelease 门槛不进旧窗口，上限随 2.4.9 发版放宽至覆盖 0.2 全线；cordis / schemastery 各追加已验证 prerelease 段）：**全树内容级 diff**（0.2.0-rc.2 整包残留 462.3MB / 26639 文件作基线，287 子包逐包比对 + 契约文件逐行 diff）确认注册 / 消费契约（ui-chat `contract/slots.d.ts` ＋ `contract/chat-nodes.d.ts`、api-session-controller `client/contract/sessions.d.ts`（fork / binding）、ui-conversation `service.d.ts`（updateQueue）与 `contract/input.d.ts`（`setDraft` 签名）、`plugins.bundle.config` ＋ `settings.plugin.item` 双 slot）**全部字节级相同**；真增量落在插件不消费处或纯增（结构化草稿 `DraftSnapshot` / `requestDraftInitialization`、`plugins.add.actions` slot、`StatsPills` 拆分 activity / usage、invariant 导出移除、`ToolCallBlock.root` 可选化），并有**正向**两处（启停插件样式隔离修复、队列滞留修复惠及 G1）。**门禁**：`test:probe` **52/52**、`verify:host` 装配断言全过（inject=shell,sessions,agents、端点 13 项）、`check:dsh` 经 peer 追加后全绿。核验记录归口 [compat-audit.md](./compat-audit.md) 头部 0.2.1-alpha.1 段与 [upgrade-assessments/dsh-0.2.1-alpha.1.md](upgrade-assessments/dsh-0.2.1-alpha.1.md)。**沿革事实（当前双分支实现的依据）**：① 0.1.7-alpha.1 起两处接缝换代——shell 执行接缝 `resolve` + `execute()`（删 `run` / `start`；§1.1 shell）、settings 面只剩 `SettingsForms`（profile entry id、可写字段须 `.volatile()`；§1.1 settings），插件双分支共存适配；② 包布局收进 `dsh/node_modules/@deepseek-ai/*`（I11）；③ fork 实现重写（边界语义等价，I35）；④ 事件集 59 种（§四）；⑤ Session 日志格式 **V4**（保留原始 message id，插件以 id 为主键、以真实 `e.seq` 推 cutSeq，免疫）；⑥ `sessions.fork` 增加可选 `onCreated`（插件不传）。
 >
 > * 来源：官方源码直接核验（本机构建检出在 `D:\workspace\dsh-plugin\deepseek-harness`），非文档转述——**遇字段争议一律以** **`.d.ts`/源码为准**（AGENTS.md 合规清单 #8）
 >
@@ -14,7 +14,7 @@
 
 ***
 
-## 一、插件依赖面（详细契约，0.1.2-alpha.1 核验通过）
+## 一、插件依赖面（详细契约，0.2.1-alpha.1 核验通过）
 
 ### 1.1 Host 服务（经 `inject` 声明或 `ctx.get` 获取）
 
@@ -402,108 +402,9 @@ workspace/changes(*新)
 
 ## 七、dsh 升级核查指引
 
-1. **契约对比**（一次升级只做一遍）：**类型源 diff 核对法**——插件对官方 API 的依赖面已契约化为 `src/types/dsh-contract.ts`（Host 依赖面，含两个 ambient 模块）与 `src/types/client-contract.ts`（Client slot/`__ModuleLoader__`/服务），升级时以这两文件为**单一类型源**，逐节对照新旧 tag 的官方 `.d.ts`/产物 diff，类型与官方不一致处即升级断点；`conversation.chat.node` 声明位置可能在包重组后迁移（本次 `ui-conversation` → `ui-chat`），先 `git/trees` 搜 slot 名再 diff。compare API 截断 300 文件不可用，用 `contents/trees` API 逐文件拉。
+1. **契约对比**（一次升级只做一遍）：**类型源 diff 核对法**——插件对官方 API 的依赖面已契约化为 `src/types/dsh-contract.ts`（Host 依赖面，含两个 ambient 模块）与 `src/types/client-contract.ts`（Client slot/`__ModuleLoader__`/服务），升级时以这两文件为**单一类型源**，逐节对照新旧 tag 的官方 `.d.ts`/产物 diff，类型与官方不一致处即升级断点；`conversation.chat.node` 声明位置可能在包重组后迁移（历史上曾发生 `ui-conversation` → `ui-chat`），先 `git/trees` 搜 slot 名再 diff。compare API 截断 300 文件不可用，用 `contents/trees` API 逐文件拉。
 2. **机器化断言**：`npm run test:probe`（官方字段假设）→ `npm run verify:host`（装配门禁）→ `npm run check:dsh`（版本巡检；镜像漂移提醒后重拉 `docs/reference/` 并更新其头部「归档 dsh 版本」）。
 3. **实弹冒烟**：中文路径工作区发消息 → 撤回（清单/文件恢复/对话回退/标题不变）→ 设置页快照管理。新 UI 机制（如 0.1.2 的 turn-process 折叠、字号调节）重点确认插件 UI 可见性与视觉协调。
-4. **台账**：核查结论对照 `docs/compat-audit.md` I1-I29 定点更新，发现失效项补「失效症状 + 复查动作」。
+4. **台账**：核查结论对照 `docs/compat-audit.md` I1-I41 定点更新，发现失效项补「失效症状 + 复查动作」。
 
-> **0.1.2-alpha.1 升级核查已完成（2026-08-30）**：0.1.1-rc.2 ↔ 0.1.2-alpha.1 双 tag 对比结论——
-> client 半大重构（`client/runtime` 删除，sessions/workspaces 迁入新增 `api/session-controller`、
-> `api/workspace-controller`，slots 迁入 `ui-renderer`，chat 节点迁入新包 `ui-chat`）；
-> I29 触发点是该服务层重组而非 guard 新增（guard 两版语义一致）；Host 半契约零破坏
-> （shell types 逐字节一致、settings installSettingsSection 逐字节一致、fork/register/list
-> 签名不变）；事件 `ignorable` 移除改 fail-closed；新增 3 种事件类型与 3 个 slot；
-> webserver 新增 gzip（默认 none）。全部已落档：compat-audit I1-I29 出处、本文档 §1/§2/§3、
-> CHANGELOG Unreleased。下版升级时先读本段，避免重复劳动。
->
-> **0.1.2-alpha.2 升级核查已完成（2026-08-31）**：alpha.1 ↔ alpha.2 对比（实测 npm 产物 + release notes）——
-> ① 事件信封 `ignorable?: true` **恢复**（alpha.1 移除改 fail-closed，alpha.2 回滚，`dsh-session`/`dsh-session-persistence` 实测确认），插件不读 ignorable 无影响（§1.3 已改）；
-> ② settings 独立函数 `installSettingsSection` **移除** → `SettingsProvider.installSection` 方法（bash-local/pwsh-local 同款迁移），插件 `src/host/index.ts` 双版本兼容分支已加、verify-host 桩补 installSection（§1.1 settings 段已改）；
-> ③ `conversation.chat.node` 声明位置：alpha.2 已实装在 `dsh-client-ui-chat`（alpha.1 镜像同包），探针路径更新为双包探测（§1.2 已改）；
-> ④ 其余（插件列表分组、Node 24 启动修复、RemoteError 封装、peer 优化）与插件依赖面无交集。机器化断言：`test:probe` 17/17 绿、`verify:host` 全绿、`check:dsh` 仅镜像漂移（reference 已重拉更新）。
->
-> **0.1.2-alpha.3 / alpha.4 升级核查（2026-09-02）**：`npm install -g @deepseek-ai/dsh@alpha` 实装 alpha.4，
-> 关键产物证据链抽查无漂移——fork 签名逐字一致（§1.1 sessions）、`renderMessageImages` 仍为图片唯一入口
-> （§1.2 chat.node）、`SettingsProvider.installSection` 导出面未再变（§1.1 settings）、SessionHeader 仍无 title
-> （§1.1 sessionQuery）。逐条核验结论见 compat-audit.md 头部 alpha.4 核验段；机器化断言：`check:upgrade`
-> 三层门禁全绿（check:dsh 漂移一致 + test:probe 31/31 + verify:host 装配断言通过）。本文件头部「对应版本」
-> 已同步，本段与探针/verify-host 构成防漂移闭环——升级后 `npm run check:dsh` 捕获文档版本未同步即报红。
->
-> **0.1.2-rc.1 升级核查（2026-09-03）**：`npm install -g @deepseek-ai/dsh@next` 实装 rc.1（候选发布版，
-> 相对 alpha 线代码冻结，另发 alpha.5 基线）。关键产物证据链抽查无漂移——fork 签名逐字一致（§1.1 sessions）、
-> renderMessageImages / ChatNodeKind 全集未变（§1.2 chat.node，探针 kind 断言全绿）、
-> `SettingsProvider.installSection` 导出面未再变（§1.1 settings）、SessionHeader 仍无 title（§1.1 sessionQuery）、
-> guard 的 shadowing priority 分配不变（I29）。**唯一注意点**：fork JSDoc 语义澄清——cut 边界取
-> `atSeq` 之后第一次 `turn/end`（at-or-after），且 open turn 内的锚点「不可用而非向后裁剪」；
-> 插件 `resolveCutSeq` 传的 cutSeq 本就是该消息之前最近一次 `turn/end` 的 seq，取 at-or-after 时
-> 若锚点落在 open turn（运行中的 agent 回合）官方会拒 fork 而非裁剪——撤回触发时若目标消息位于
-> 运行中回合内需留意（P0-1 agentBusy 拦截已挡运行中撤回，实际触发面小）。逐条结论见 compat-audit.md
-> 头部 rc.1 核验段；机器化断言：`check:upgrade` 三层门禁全绿（check:dsh 漂移一致 + test:probe 31/31 + verify:host 装配断言通过）。
->
-> **0.1.3-alpha.1 升级核查（2026-09-07）**：**npm 未发布**（dist-tags latest 仍 0.1.2-rc.1），因此本地以
-> `dsh-v0.1.3-alpha.1` tag 源码构建（检出 `D:\workspace\DSH\deepseek-harness0.1.3-alpha.1`，`pnpm install` + `pnpm run build`）
-> 并经 `npm link` 全局实装 0.1.3-alpha.1（依赖全局 @deepseek-ai/dsh 的探针/核验全链路同源生效；契约#pragma
-> 评估先行于 [upgrade-assessments/dsh-0.1.3-alpha.1.md](upgrade-assessments/dsh-0.1.3-alpha.1.md)，本篇为实装核验）。
-> 关键产物证据链抽查与评估结论一致——fork 签名逐字一致（§1.1 sessions）、`renderMessageImages` 仍在且
-> **`ChatNodeOwnerProps` 新增必填 `loadImage: MessageImageLoader` 下放**（§1.2 chat.node；原 Omit 剔除形态撤销，
-> 插件未用 loadImage、仍走 renderMessageImages，消费方无破坏）、`sessionQuery.readSession` 仅增强 `inheritedEventCount`
-> （读取侧可选字段，§1.1 sessionQuery 不变）、SessionHeader 仍无 title（§1.1 sessionQuery）、事件集
-> `assistant/chunk` 移除 + `assistant/attempt` 新增（§四；插件只扫 user/message + turn/end，零交集）、
-> SessionHandle 为 persistence seam 内部重构不外泄（`ctx.sessions` 契约面不变）。机器化断言：`check:upgrade`
-> 三层门禁全绿（check:dsh 漂移一致 + test:probe 31/31 + verify:host 装配断言通过）。逐条结论见 compat-audit.md
-> 头部 0.1.3-alpha.1 核验段。结论：接口层面零破坏，无需改码。
->
-> **0.1.3-alpha.2 升级核查（2026-09-08）**：**npm 已发布**（dist-tag `alpha` 指向 0.1.3-alpha.2），
-> `npm install -g @deepseek-ai/dsh@0.1.3-alpha.2` 全局实装（依赖同步 dsh-settings 0.1.3-alpha.2、
-> schemastery 3.18.2），reference/ 镜像重拉归档（13 文件映射表未变；仅 09-architecture.md 有官方
-> 文字修订——agent-loop 请求不可变语义、migration 只读 open 不发布后继/写 open 排他发布与 interrupted
-> turn/end 补齐规则细化，非 API 契约变化），`npm run check:upgrade` 三层门禁全绿（check:dsh 漂移一致 +
-> test:probe 31/31 + verify:host 装配断言通过）。重查关键产物证据链：I1/I29 guard.d.ts shadowing priority
-> 分配不变、I2 renderMessageImages 与 loadImage 并存不变（0.1.3-alpha.1 下放形态延续）、I5 ChatNodeKind
-> 全集探针断言全绿、I4 node.id/key 语义不变、I6 fork 签名逐字一致、I28 SessionHeader 仍无 title、I30
-> installSection 未回归——与 0.1.3-alpha.1 核验结论一致，alpha.2 无新增契约点。**兼容声明同步扩展**：
-> compat-audit 头部 0.1.3-alpha.1 核验段、compat matrix I1-I30 目标条目、package.json `dsh.compatibility.dshReleases`
-> 与 7 个 peerDependencies 范围各补 `0.1.3-alpha.2` tuple（沿 2.3.4 逐 tuple OR 窗口先例；CHANGELOG 待发版 2.3.7
-> 时补记）。结论：接口层面零破坏，无需改码。
->
-> **0.1.5-alpha.1 升级核查（2026-09-09）**：**npm 已发布**（dist-tag `alpha` 指向 0.1.5-alpha.1），
-> `npm install -g @deepseek-ai/dsh@0.1.5-alpha.1` 全局实装，reference/ 镜像重拉归档（13 文件映射表未变；
-> 05/09/13 三份有官方文字修订——09-architecture.md 新增「桌面应用」节 + agent-loop 系统提示词改经 `system/message`
-> 历史传递的语义细化 + 事件持久集补 `system/message`，非插件依赖的 API 契约变化），`npm run test:probe` 31/31
-> 全绿 + `npm run verify:host` 装配断言通过。重查关键产物证据链：I1/I29 guard.d.ts shadowing priority 不变、
-> I2 renderMessageImages 与 loadImage 并存不变、I6 fork 签名逐字一致（`sessions.d.ts`）、I28 SessionHeader 仍无
-> title、I30 installSection 未回归。**本次核心：Session format V3**——V2→V3 迁移插入 `system/message` 事件并
-> remap seq（`dsh-session-format-v2-to-v3/lib/index.js` 实读），但**保留原始 message id**；插件免疫根因三条：
-> ① 读取全走官方恢复后的内存态（`sessions.get`/`readSession` 返回 V3 态，seq 坐标系与 `fork({atSeq})` 同源）；
-> ② 消息定位以 `data.id` 为主键（迁移保留原 id，快照 tag 主键不受 seq 位移影响）；③ `cutSeqCache` 为内存态
-> （随 apply 重建，不跨版本陈旧）。**新契约点（非漂移，插件零消费）**：事件集新增 `system/message` +
-> `feedback/message-put`/`feedback/message-delete`、`tool/code-dispatch*` 更名 `tool/ptc-dispatch*`（§四已同步，
-> `src/types/dsh-contract.ts` union 同步至 54 种）；移除 `ctx.agent`（单数，插件用 `ctx.agents` 复数注册表零引用）；
-> `Inbox` 改 type-only（插件零引用）。**兼容声明同步扩展**：package.json `dshReleases` 矩阵补 `0.1.3-alpha.2`
-> （修正 2.3.7 遗漏）+ `0.1.5-alpha.1`，7 个 peerDependencies 范围各补 `>=0.1.5-alpha.1 <=0.1.5-alpha.1` tuple。
-> 机器化断言：`check:dsh` peer 越界已消除（仅余镜像/契约版本字段，本次同步）。评估实证见
-> [upgrade-assessments/dsh-0.1.5-alpha.1.md](upgrade-assessments/dsh-0.1.5-alpha.1.md)。结论：接口层面零破坏，无需改码。
->
-> **0.1.6-alpha.2 升级核查（2026-09-18）**：**npm 已发布**（dist-tag `alpha` 指向本版，tag commit `ddefc45`），
-> `npm install -g @deepseek-ai/dsh@alpha` 全局实装（dsh-settings 随装 0.1.6-alpha.2、schemastery 仍 3.18.2），
-> reference/ 镜像按 alpha.2 tag 重拉（13 文件映射表未变；仅 06/09 两文件实质差异——06 HMR 插件改名
-> `cordis-plugin-hmr`→`dsh-hmr`、09 桌面应用架构重写 + `dsh <profile>` CLI 别名 + inbox 持久投影补充，
-> 均非插件契约面）。三层门禁：`test:probe` 37/37 + `verify:host` 装配断言通过；`check:dsh` 报镜像/契约
-> 版本漂移，本次同步。**本次唯一需改码项：旧设置页插件 tab 整体移除**——`settings.plugin.item` 与
-> `settings.plugins.tab` 产物字符串归零，新增 ui-plugin-manager（插件管理页，release notes「新增插件管理页」）
-> 声明 `plugins.item`/`plugins.bundle.config`/`plugins.row.config` 三 slot；插件设置卡片已迁挂
-> `plugins.bundle.config`（key=`dsh-recall-plugin`，page 视图自含保存控件，RecallSettingsCard 直接兼容），
-> 旧键注册保留（未声明 key 的 inject 是 renderer specDynamic===undefined 的静默 no-op，双版本各吃各键，
-> 无需探测）。**session-controller client 面大改（多实例共存）**：新增 `retain`/`using`/`retainInfo`/`SessionReference`
-> 引用模型，`binding()` 收窄为「只借已 retain 的会话」——fork 签名逐字不变（§1.1）、本机产物实证
-> `cut = SessionLogOffset(boundary.seq + 1)` 切点保持（I35 根治不回退）；附件链（I34）有全链 typeof 降级，
-> 源会话未 retain 时仅附件不重建、功能不死。**ISessions 移除 `open`（实弹发现）**：契约注释「navigation
-> belongs to view owners」，导航入口迁到独立 `uiWorkspace` 服务（`dsh-client-ui-workspace`）的
-> `openSession(target: SessionTarget)`，`SessionTarget = SessionId | SubagentAddress`——`ctx.workspaces`
-> 只有归档能力、无导航。`sessions.list.byId` 在 alpha.2 含归档会话，且归档选择会被官方清空（空态），
-> 故「切换」类导航须自行排除归档目标。详见 I37。**connection 零漂移**：`fetch.register` 契约不变（仅新增
-> `streamBaseUrl?` 可选字段）。其余证据链：`SettingsProvider.installSection` 在位（I30）、
-> `ChatNodeOwnerProps.renderMessageImages/loadImage` 并存（I2）、fork JSDoc at-or-after 语义不变。机器化断言：
-> `npm run build` + `npm test` 全绿后 `check:upgrade` 复跑全绿，探针补「会话导航归属」2 例。结论：三处改码
-> （设置卡片 slot 迁移 + fork 后导航改走 uiWorkspace + 「切换」闸门叠加归档集合排除），实弹冒烟全过（I37）。
-
+> **版本核验记录归口**：历次版本（含最新 **0.2.1-alpha.1**，2026-10-03：零破坏、无需改码、peer 窗口追加 `>=0.2.1-alpha.1 <0.3.0` 段）的核查记录见 [compat-audit.md](./compat-audit.md) 头部核验段与 [upgrade-assessments/](./upgrade-assessments/)；本文只保留当前版本的核验状态与一直成立的事实，不堆叠历史记录。

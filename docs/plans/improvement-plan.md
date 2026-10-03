@@ -28,6 +28,7 @@
 | [构建产物工作区根的快照护栏与残骸回收（issue #18）](./completed/plan-build-root-guard.md) | workspace root 自身是构建产物目录（`target/debug`、`dist`）时排除表失效致 GB 级残留，且 refs 空 + index 残留让 gc 回收不了；M1 脚本层清陈旧 index 后 gc、M2 构建产物 root 不再建快照 + 可见性、M3 磁盘枚举覆盖 + 空仓整目录回收 | 已实施（2026-09-22：M1+M2+M3 全部落地，M1 双平台实弹 6/6、M3 实弹 4/4、391 例单测与门禁全绿；DSH 会话级实弹留待人工冒烟） |
 | [dsh 0.1.7-alpha.1 适配](./completed/plan-dsh-0.1.7-adapt.md) | 上游首个破坏性版本的消费接缝迁移：M1 `ShellExecutor.run` → `execute()` + `result()`（双分支）、M2 settings 三分支接线 → `SettingsForms` + profile entry id + schema `.volatile()`（双分支）、M3 探针/装配桩/台账、M4 兼容声明与文档同步、M5 双平台实弹；中/低相关条目按「处置表」逐条记账（多为零代码，含事件集 54→59 同步与 6 个对照点并入 M5） | 已完成（2026-09-23：M1–M4 门禁全绿 + M5 双平台实弹全过——WSL 硬指标零 `shell.run`、npm 模式持久化、0.1.6 降级回归实锤并修复一处旧面注册回归（`c3cc8a7`）、fork 边界与对照点逐项过；M5-6② 附件复验因环境无图片模型受限记账） |
 | [质量加固专项（A1–A8）](./completed/plan-quality-hardening.md) | 2026-09-29 同类插件专项六维度对比驱动：client UI 测试体系、intent journal 崩溃恢复（吸收 competitor-ux U4）、磁盘格式版本守卫、i18n 双语层、client logger、`noUncheckedIndexedAccess`、format.md（提前 P2-2 FORMAT 半）、catch 理由注释纪律 | 已实施并验收（2026-09-30：A1–A8 全落地过门禁 + 活体冒烟第九节 R-1〜R-6 全过；实弹掘出并修复 4 个真实缺陷（含 win32 格式守卫永久锁死），见该文档「活体冒烟」节与 smoke-checklist-records 同日批次） |
+| [引用 chip 回填：撤回后 @文件/目录引用结构化还原](./pending/plan-refill-references.md) | dsh 0.2.1-alpha.1 结构化草稿（`DraftSnapshot` + `setDraft(DraftInput)`）驱动：把被撤回消息里的 `@path` 引用重建为可点击 chip 回填输入框（仅 file/folder；探测失败或旧版本全降级纯文本）；含配置开关、mention 扫描器与矩阵单测 | 待实施（能力面评估见 [upgrade-assessments/dsh-0.2.1-alpha.1.md](../upgrade-assessments/dsh-0.2.1-alpha.1.md) §三观察项①） |
 
 ## 全局实施顺序
 

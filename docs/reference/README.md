@@ -2,9 +2,9 @@
 
 > 用途：dsh 插件开发相关官方文档的本地副本，改代码前优先查这里，避免每次联网翻文档。
 >
-> 归档日期：2026-09-29，对应 [deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) 仓库 `dsh-v0.2.0-rc.2` tag `docs/` 目录（raw.githubusercontent 按 tag 拉取；直连可用，无需代理）。
+> 归档日期：2026-10-03，对应 [deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) 仓库 `dsh-v0.2.1-alpha.1` tag `docs/` 目录（raw.githubusercontent 按 tag 拉取；直连可用，无需代理）。
 >
-> 归档 dsh 版本：0.2.0-rc.2（`npm run check:dsh` 的漂移比对基准；重拉镜像后同步更新本字段，见下方「更新方式」）
+> 归档 dsh 版本：0.2.1-alpha.1（`npm run check:dsh` 的漂移比对基准；重拉镜像后同步更新本字段，见下方「更新方式」）
 >
 > 在线站点：https://deepseek-harness.github.io/deepseek-harness/ ｜ 每份文件头部都带「来源」注释，可溯回官方原文。
 
@@ -84,3 +84,12 @@ iwr -UseBasicParsing 'https://raw.githubusercontent.com/deepseek-ai/deepseek-har
 > （「桌面应用」段重写：桌面端在签名资源内携带精确匹配的 dsh 运行时、`Desktop 与 npm CLI 共享产品数据，但包、启用选择与锁文件保持独立。
 > Desktop 内置 CLI 管理其已初始化的插件。」，净 **−173 字符**——对应本版「桌面端可在菜单栏管理/安装 dsh 命令与插件」的新能力，
 > 属桌面载体说明的措辞更新），其余 12 份逐字节相同；本轮直连 `raw.githubusercontent` 一次成功，无需代理或重试。
+>
+> 2026-10-03 五次重拉（`dsh-v0.2.0-rc.2` → `dsh-v0.2.1-alpha.1`）：13 源中 **4 份有实质差异、9 份逐字节相同**——
+> 01-quickstart 新增「在反向代理之后发布 Web UI」链接（对应 `--public-url`）；09-architecture 两处：桌面端
+> 「默认端口为 `19387`」改「默认监听系统分配的端口」（对应 Windows 保留端口启动修复）、「运行时不变量检查模型请求是否可重建」
+> 句改「每个模型请求都必须能从日志重建」（invariant 插件移除的文档同步）；11-cookbook-conversation-node 工具 delta 匹配
+> 语义放宽（名称未到达即可按 callId 匹配 start、准备态 Tool 节点延后显示）+ 新增 `ConversationNodeDefinitionInput`
+> 表形式注册说明；13-cookbook-extension 两处链接改指 reference 新路径 + 定时任务投递改
+> `followup(…, {source: {kind: 'schedule'}})`（对应自动化任务改 Web 内置能力）。本轮直连 `raw.githubusercontent` 一次成功（首轮缺
+> 4 文件系执行环境中断，补齐后 13/13 齐），无需代理或重试。
