@@ -73,6 +73,63 @@ function dropGitlinksBlock() {
   ].join('\n')
 }
 
+// exclude 表里 basename 形式（无通配、无内部斜杠、非 ! 反选）的 pattern 按
+// gitignore 语义匹配任意层级同名目录，遍历时把这类目录名收进 HashSet 整棵子树跳过。
+// 被 oversizeBlock（超大文件扫描）与 reparseDirsBlock（重解析点发现）共用：两处
+// 必须同判据，判据本身与 scripts.posix.ts 的 oversizeBlock / exclude-patterns.ts 的
+// dirNamePatterns 三处同源——改判据要同步那两个文件。
+// 依赖外层已定义的 $lines。
+function dirSkipSetBlock(name: string): string {
+  return [
+    '$' + name + ' = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)',
+    'foreach ($p in $lines) {',
+    '  $t = "$p".Trim()',
+    "  if (-not $t -or $t.StartsWith('#') -or $t.StartsWith('!')) { continue }",
+    "  $t = $t -replace '/$', ''",
+    "  if ($t -notmatch '[*?\\[\\]/\\\\]') { [void]$" + name + '.Add($t) }',
+    '}'
+  ].join('\n')
+}
+
+// 目录重解析点（junction / 目录符号链接）发现，结果并进 info/exclude。
+// 起因：git for Windows 把 NTFS junction 当普通目录，add -A 会递归进入其链接目标
+// ——core.symlinks 取 true / false / 默认实测**同样递归**，无法用配置规避。于是自引用
+// junction（`a/link -> a`）会按 Windows 的「路径中最多 31 个重解析点」上限把同一棵子树
+// 重复索引：实测 2 个真实文件的工作区产出 64 条索引（36 条路径长度 > 260），真实病例
+// 1.24 万条 → 39.2 万条、.git/index 168 MB，并让 preview/快照/回退退化到分钟级
+// （diffScript 的 PowerShell 侧要为两侧各建一份 39 万条哈希表）。
+// 修法：遍历目录树（不进入链接目标）把重解析点目录按相对 root 的路径连同尾斜杠并入
+// 排除表。本函数由 excludeSyncBlock 在 add -A **之前**调用，git 因此根本不进入它们；
+// 已跟踪的旧幽灵条目由 excludeSyncBlock 既有的 ls-files -i -c 分支一次清掉。路径带 `/`
+// 中缀即按 gitignore 锚定到仓库根（=工作区 root），与本意一致。
+// 遍历成本：只枚举目录、不 stat 文件，且与 oversizeBlock 同一套目录名剪枝——无重解析点
+// 的工作区不产生任何 exclude 差异，条件化比对因此跳过重写与清理循环（零常态开销）。
+// 平台差异：POSIX 的 git 把指向目录的符号链接记成 120000 条目、不递归，故那里不做本发现
+//（见 scripts.posix.ts 同名注释）；POSIX 的 bind mount 环不覆盖，记为已知缺口。
+// 依赖外层已定义的 $root 与 $lines。
+function reparseDirsBlock(): string {
+  return [
+    dirSkipSetBlock('reparseSkip'),
+    '$reparseStack = [System.Collections.Generic.Stack[string]]::new()',
+    '$reparseStack.Push($root)',
+    '$reparseRel = [System.Collections.Generic.List[string]]::new()',
+    'while ($reparseStack.Count -gt 0) {',
+    '  $dir = $reparseStack.Pop()',
+    '  try {',
+    '    $di = [System.IO.DirectoryInfo]::new($dir)',
+    '    foreach ($d in $di.EnumerateDirectories()) {',
+    '      if ($reparseSkip.Contains($d.Name)) { continue }',
+    '      if (($d.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {',
+    "        $reparseRel.Add($d.FullName.Substring($root.Length + 1).Replace('\\','/') + '/')",
+    '        continue',
+    '      }',
+    '      $reparseStack.Push($d.FullName)',
+    '    }',
+    '  } catch {}',
+    '}'
+  ].join('\n')
+}
+
 // 剔除超大文件：.NET 手动栈遍历（PF-3）替代 Get-ChildItem -Recurse——后者
 // 每文件走一遍 PowerShell 管道对象，几万文件时数秒，且 snapshot/diff/rollback
 // 三条脚本各调一次（一次完整撤回 4 次全工作区枚举）。手动栈是 .NET 4.x
@@ -91,13 +148,7 @@ function dropGitlinksBlock() {
 // 依赖外层已定义的 $git/$g/$root；$lines 由前置的 excludeSyncBlock 定义。
 function oversizeBlock(maxBytes: number): string {
   return [
-    '$oversizeSkip = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)',
-    'foreach ($p in $lines) {',
-    '  $t = "$p".Trim()',
-    "  if (-not $t -or $t.StartsWith('#') -or $t.StartsWith('!')) { continue }",
-    "  $t = $t -replace '/$', ''",
-    "  if ($t -notmatch '[*?\\[\\]/\\\\]') { [void]$oversizeSkip.Add($t) }",
-    '}',
+    dirSkipSetBlock('oversizeSkip'),
     '$oversizeStack = [System.Collections.Generic.Stack[string]]::new()',
     '$oversizeStack.Push($root)',
     '$oversizeRel = [System.Collections.Generic.List[string]]::new()',
@@ -111,7 +162,9 @@ function oversizeBlock(maxBytes: number): string {
     '      }',
     '    }',
     '    foreach ($d in $di.EnumerateDirectories()) {',
-    '      if (-not $oversizeSkip.Contains($d.Name)) { $oversizeStack.Push($d.FullName) }',
+    '      if ($oversizeSkip.Contains($d.Name)) { continue }',
+    '      if (($d.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) { continue }',
+    '      $oversizeStack.Push($d.FullName)',
     '    }',
     '  } catch {}',
     '}',
@@ -151,6 +204,8 @@ function excludeSyncBlock(excludeFile: string, base: string[]): string {
     '$userPats = @()',
     "if (Test-Path -LiteralPath $exFile) { $userPats = @(Get-Content -LiteralPath $exFile -Encoding UTF8 -ErrorAction SilentlyContinue | Where-Object { $t = $_.Trim(); $t -and -not $t.StartsWith('#') }) }",
     "$lines = @('') + @(" + baseList + ") + $userPats",
+    reparseDirsBlock(),
+    '$lines = $lines + @($reparseRel)',
     "$exc = Join-Path $g 'info\\exclude'",
     '$excOld = @(Get-Content -LiteralPath $exc -Encoding UTF8 -ErrorAction SilentlyContinue)',
     '$same = ($excOld.Count -eq $lines.Count)',
