@@ -101,8 +101,23 @@ describe('脚本模板同名导出契约', () => {
       expect(s).toContain('$lines = $lines + @($reparseRel)')
       // 顺序钉：并入必须在 add -A 之前，否则首轮仍会把幽灵条目加进索引
       expect(s.indexOf('$lines = $lines + @($reparseRel)')).toBeLessThan(s.indexOf('add -A'))
+      // 守卫钉（评审 P2）：遍历被 if ($root) 显式守卫——ensureGitScript 无 $root，
+      // 跳过是显式设计，不依赖「Push($null) 被 catch 吞掉」的巧合
+      expect(s).toContain('if ($root) {')
+      // 重建钉（评审 P1）：幽灵条目上万时分批清理是「条数/100 次子进程 × 全量重写
+      // index」（实测 37.9 万条 / 168 MB 估 10–60 分钟），超阈值改 read-tree --empty
+      // 交给随后 add -A 重建；失败必须显式 throw，否则幽灵条目随 exclude 已重写
+      // 永久滞留（清理不再触发）
+      expect(s).toContain('if ($hit.Count -gt 10000) {')
+      expect(s).toContain('read-tree --empty')
+      expect(s).toContain("throw ('git read-tree --empty failed")
     }
+    // P2 的 ensureGit 侧：建仓脚本无 $root 入参，同样必须走显式守卫路径
+    expect(pwsh.ensureGitScript(FAKE_STORE, 'git-exe', [])).toContain('if ($root) {')
     expect(posix.snapshotScript('ROOT', FAKE_STORE, 'git-exe', 'm1', [])).not.toContain('ReparsePoint')
+    // 重建路径是 win32 病例的针对性处置：posix 的 xargs 自适应合批无此规模问题，
+    // 且幽灵爆炸成因（junction 递归）在 posix 不存在，不钉、也不应出现
+    expect(posix.snapshotScript('ROOT', FAKE_STORE, 'git-exe', 'm1', [])).not.toContain('read-tree --empty')
   })
 
   for (const key of pwshKeys) {
